@@ -39,7 +39,7 @@ class Controller extends \PDO
         return $args;
     }
 
-    function q($query, $input = [], &$stmt = null){
+    function q($query, $input = [], &$stmt = null, $fetchObject = null){
         $stmt = $this->prepare($query);
         $stmt->execute(static::addColonsToKeys($input));
 
@@ -49,7 +49,11 @@ class Controller extends \PDO
         }elseif(in_array($queryType, ['update', 'delete', 'create'])){
             $result = $stmt->rowCount();
         }else{
-            $result = $stmt->fetchAll();
+            if($fetchObject){
+                $result = $stmt->fetchAll();
+            }else{
+                $result = $stmt->fetchAll(\PDO::FETCH_CLASS, $fetchObject);
+            }
         }
         $stmt->closeCursor();
         return $result;

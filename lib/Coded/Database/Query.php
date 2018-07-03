@@ -53,7 +53,7 @@ class Query extends Controller
         return $this->q($query, $args, $stmt);
     }
 
-    function select($table, $filter = null, array $columnsToSelect = [], &$stmt = null){
+    function select($table, $filter = null, array $columnsToSelect = [], &$stmt = null, $fetchObject = null){
         list($where, $order, $limit) = $this->extract($filter);
         $whereQuery = $this->buildWhere($where);
         $orderQuery = $this->buildOrder($order);
@@ -64,10 +64,10 @@ class Query extends Controller
         $query = 'select '.$columnsToSelect.' from `'.$table.'`'.$whereQuery.$orderQuery.$limitQuery.';';
 
         $args = is_array($where) ? $where : [];
-        return $this->q($query, $args, $stmt);
+        return $this->q($query, $args, $stmt, $fetchObject);
     }
 
-    function single($table, $filter = null, array $columnsToSelect = [], &$stmt = null){
+    function single($table, $filter = null, array $columnsToSelect = [], &$stmt = null, $fetchObject = null){
         if(is_numeric($filter)) {
             $id = $filter;
             $filter = [];
@@ -82,7 +82,7 @@ class Query extends Controller
         }else{
             $filter['limit'] = 1;
         }
-        $result = $this->select($table, $filter, $columnsToSelect, $stmt);
+        $result = $this->select($table, $filter, $columnsToSelect, $stmt, $fetchObject);
         if(isset($result[0])) return $result[0];
         return $result;
     }
