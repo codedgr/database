@@ -50,9 +50,9 @@ class Controller extends \PDO
             $result = $stmt->rowCount();
         }else{
             if($fetchObject){
-                $result = $stmt->fetchAll();
-            }else{
                 $result = $stmt->fetchAll(\PDO::FETCH_CLASS, $fetchObject);
+            }else{
+                $result = $stmt->fetchAll();
             }
         }
         $stmt->closeCursor();
