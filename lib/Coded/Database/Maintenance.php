@@ -3,6 +3,7 @@
 namespace Coded\Database;
 
 use Coded\Exception\MaintenanceException;
+use mysql_xdevapi\Exception;
 
 class Maintenance
 {
@@ -85,10 +86,18 @@ class Maintenance
         while($version = $this->updateAvailable()){
             $preVersion = $version-1;
             $this->enterMaintenanceMode('from version: '.$preVersion);
-            if($dumb) $this->db->dump(date('Y.m.d.H.i.s').'.'.$preVersion, $excludeTables);
-            if(!$this->doUpdate($version)) break;
-            $this->db->q('update `settings` set `value` = ? where `key` = "database_version"', $version);
-            $updated = $version;
+            $this->db->beginTransaction();
+            try{
+                if($dumb) $this->db->dump(date('Y.m.d.H.i.s').'.'.$preVersion, $excludeTables);
+                if(!$this->doUpdate($version)) break;
+                $this->db->q('update `settings` set `value` = ? where `key` = "database_version"', $version);
+                $updated = $version;
+                $this->db->commit();
+            }catch (Exception $e){
+                $this->db->rollBack();
+                $this->exitMaintenanceMode();
+                throw new MaintenanceException('Maintenance failed with message: '.$e->getMessage());
+            }
         }
         $this->exitMaintenanceMode();
         return $updated;
