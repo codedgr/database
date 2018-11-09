@@ -49,8 +49,7 @@ class Maintenance
                 return static::runPHP($phpFile, $this->db);
             }
         }catch(\Exception $e){
-            file_put_contents($sqlFile.'.error.log', $e->getMessage());
-            die();
+            throw new MaintenanceException($e->getMessage());
         }
         return false;
     }

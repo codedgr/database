@@ -78,7 +78,7 @@ class Controller extends \PDO
             return true;
         }catch(\PDOException $e) {
             $this->rollBack();
-            if($exception) throw new $exception($e->getMessage(), $e->getCode());
+            if($exception) throw new $exception($e->getMessage());
             return false;
         }
     }
