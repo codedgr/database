@@ -166,7 +166,7 @@ class Query extends Controller
                 }, $inKeys);
                 $data[] = '`'.$key.'` '.$value[0].' ('.implode(', ', $inKeys).')';
                 continue;
-            }elseif(is_string($value) and ($value[0] == '%' or $value[strlen($value) - 1] == '%')){
+            }elseif(is_string($value) and strlen($value) and ($value[0] == '%' or $value[strlen($value) - 1] == '%')){
                 $data[] = '`'.$key.'` like :'.$key;
             }else{
                 $data[] = '`'.$key.'` = :'.$key;
