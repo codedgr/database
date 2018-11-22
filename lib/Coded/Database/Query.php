@@ -137,13 +137,13 @@ class Query extends Controller
 
     protected function buildWhere(&$where){
         if(!$where) return '';
-        if(is_string($where)) return ' where '.trim($where);
         if(is_numeric($where)) {
             $input = trim($where);
             $where = [];
             $where['id'] = $input;
             return ' where id = :id';
         }
+        if(is_string($where)) return ' where '.trim($where);
 
         $data = $args = [];
         foreach($where as $key=>$value){
