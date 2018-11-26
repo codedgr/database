@@ -2,4 +2,6 @@
 
 namespace Coded\Exception;
 
-class MaintenanceException extends \Exception{}
+class MaintenanceException extends \Exception
+{
+}

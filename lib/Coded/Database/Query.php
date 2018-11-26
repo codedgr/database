@@ -170,7 +170,7 @@ class Query extends Controller
         $data = [];
         foreach (explode(' ', trim($string)) as $word) {
             foreach ($searchIn as $key) {
-                $customKey = md5('search' . $key . $word . microtime() . rand(1,9999999));
+                $customKey = md5('search' . $key . $word . microtime() . rand(1, 9999999));
                 $data[] = '`' . $key . '` like :' . $customKey;
                 $where[$customKey] = '%' . $word . '%';
             }

@@ -2,4 +2,6 @@
 
 namespace Coded\Exception;
 
-class DatabaseException extends \PDOException {}
+class DatabaseException extends \PDOException
+{
+}
