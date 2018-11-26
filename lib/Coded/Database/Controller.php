@@ -62,6 +62,20 @@ class Controller extends \PDO
         return $result;
     }
 
+    function transactionIfNotExists(callable $function)
+    {
+        $exists = $this->inTransaction();
+        if (!$exists) $this->beginTransaction();
+        try{
+            $result = $function();
+            if (!$exists) $this->commit();
+            return $result;
+        }catch (\Exception $e){
+            if (!$exists) $this->rollBack();
+            throw new \Exception();
+        }
+    }
+
     function import($sqlFile, $exception = DatabaseException::class)
     {
         if (!file_exists($sqlFile)) {
