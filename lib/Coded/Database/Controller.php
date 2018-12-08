@@ -72,7 +72,7 @@ class Controller extends \PDO
             return $result;
         }catch (\Exception $e){
             if (!$exists) $this->rollBack();
-            throw new \Exception();
+            throw $e;
         }
     }
 
