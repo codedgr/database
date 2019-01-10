@@ -197,8 +197,8 @@ class Query extends Controller
         $data = $args = [];
         foreach ($where as $key => $value) {
             if (is_array($value) and in_array(strtolower($value[0]), ['=', '!=', '>', '<', '>=', '<=', 'like', 'not like'])) {
-                $data[] = '`' . $key . '` ' . $value[0] . ' :' . $key;
-                $args[$key] = $value[1];
+                $data[] = '`' . $key . '` ' . $value[0] . ' :w' . $key;
+                $args['w' . $key] = $value[1];
                 continue;
             } elseif (is_array($value) and in_array(strtolower($value[0]), ['in', 'not in']) and is_array($value[1])) {
                 $special = strtolower($value[0]) == 'in' ? 'In' : 'NotIn';
@@ -207,8 +207,8 @@ class Query extends Controller
                     do {
                         $rand = $key . $special . ucfirst(strtolower($k));
                     } while (in_array($rand, $inKeys));
-                    $inKeys[] = $rand;
-                    $args[$rand] = $v;
+                    $inKeys[] = 'w' . $rand;
+                    $args['w' . $rand] = $v;
                 }
                 $inKeys = array_map(function ($value) {
                     return ':' . $value;
@@ -216,11 +216,11 @@ class Query extends Controller
                 $data[] = '`' . $key . '` ' . $value[0] . ' (' . implode(', ', $inKeys) . ')';
                 continue;
             } elseif (is_string($value) and strlen($value) and ($value[0] == '%' or $value[strlen($value) - 1] == '%')) {
-                $data[] = '`' . $key . '` like :' . $key;
+                $data[] = '`' . $key . '` like :w' . $key;
             } else {
-                $data[] = '`' . $key . '` = :' . $key;
+                $data[] = '`' . $key . '` = :w' . $key;
             }
-            $args[$key] = $value;
+            $args['w' . $key] = $value;
         }
         $where = $args;
         return ' where ' . implode(' and ', $data);
