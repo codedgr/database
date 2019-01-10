@@ -36,11 +36,15 @@ class Query extends Controller
         foreach ($args as $key => $value) {
             $set[] = '`' . $key . '` = :' . $key;
         }
-        $where = $this->buildWhere($filter);
-        $query = 'update `' . $table . '` set ' . implode(', ', $set) . $where . ';';
 
-        if (is_array($filter) or is_object($filter)) {
-            $args = array_merge($args, (array)$filter);
+        list($where, $order, $limit) = $this->extract($filter);
+        $whereQuery = $this->buildWhere($where);
+        $orderQuery = $this->buildOrder($order);
+        $limitQuery = $this->buildLimit($limit);
+        $query = 'update `' . $table . '` set ' . implode(', ', $set) . $whereQuery . $orderQuery . $limitQuery . ';';
+
+        if (is_array($where) or is_object($where)) {
+            $args = array_merge($args, (array)$where);
         }
         return $this->q($query, $args, $stmt);
     }
