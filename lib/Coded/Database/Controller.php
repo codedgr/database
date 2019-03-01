@@ -66,11 +66,11 @@ class Controller extends \PDO
     {
         $exists = $this->inTransaction();
         if (!$exists) $this->beginTransaction();
-        try{
+        try {
             $result = $function();
             if (!$exists) $this->commit();
             return $result;
-        }catch (\Exception $e){
+        } catch (\Exception $e) {
             if (!$exists) $this->rollBack();
             throw $e;
         }
@@ -91,13 +91,18 @@ class Controller extends \PDO
 
         try {
             $this->beginTransaction();
+            //todo when multiple queries, unable to catch sql syntax errors
             $this->query($update);
+
+            //todo this causing PDOException "There is already an active transaction"
+            //$result = $this->query($update);
+            //if (!$result) throw \Exception('Query failed.');
+
             $this->commit();
             return true;
-        } catch (\PDOException $e) {
+        } catch (\Exception $e) {
             $this->rollBack();
             if ($exception) throw new $exception($e->getMessage());
-            return false;
         }
     }
 
