@@ -215,8 +215,24 @@ class Query extends Controller
                 }, $inKeys);
                 $data[] = '`' . $key . '` ' . $value[0] . ' (' . implode(', ', $inKeys) . ')';
                 continue;
+            } elseif (is_array($value) and in_array(strtolower($value[0]), ['between']) and is_array($value[1]) and count($value[1]) == 2) {
+                $inKeys = [];
+                foreach ($value[1] as $k => $v) {
+                    do {
+                        $rand = $key . 'Between' . ucfirst(strtolower($k));
+                    } while (in_array($rand, $inKeys));
+                    $inKeys[] = 'w' . $rand;
+                    $args['w' . $rand] = $v;
+                }
+                $inKeys = array_map(function ($value) {
+                    return ':' . $value;
+                }, $inKeys);
+                $data[] = '`' . $key . '` ' . $value[0] . ' ' . implode(' and ', $inKeys);
+                continue;
             } elseif (is_string($value) and strlen($value) and ($value[0] == '%' or $value[strlen($value) - 1] == '%')) {
                 $data[] = '`' . $key . '` like :w' . $key;
+            } elseif ($value === null) {
+                $data[] = '`' . $key . '` is null';
             } else {
                 $data[] = '`' . $key . '` = :w' . $key;
             }
