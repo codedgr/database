@@ -236,7 +236,7 @@ class Query extends Controller
             } else {
                 $data[] = '`' . $key . '` = :w' . $key;
             }
-            $args['w' . $key] = $value;
+            if ($value !== null) $args['w' . $key] = $value;
         }
         $where = $args;
         return ' where ' . implode(' and ', $data);
