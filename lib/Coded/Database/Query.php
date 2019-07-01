@@ -30,31 +30,49 @@ class Query extends Controller
         return $this->q($query, array_merge($args, $duplicateArgs), $stmt);
     }
 
+    function insertIgnore($table, array $args, &$stmt = null)
+    {
+        $keys = array_map(function ($value) {
+            return '`' . $value . '`';
+        }, array_keys($args));
+        $values = array_keys(static::addColonsToKeys($args));
+        $query = 'insert ignore into `' . $table . '` (' . implode(', ', $keys) . ') values (' . implode(', ', $values) . ')';
+
+        $duplicateArgs = [];
+
+        $query .= ';';
+        return $this->q($query, array_merge($args, $duplicateArgs), $stmt);
+    }
+
     function update($table, array $args, $filter = null, &$stmt = null)
     {
+        $alias = 'a';
         $set = [];
+        $argsAlias = [];
         foreach ($args as $key => $value) {
-            $set[] = '`' . $key . '` = :' . $key;
+            $set[] = $alias . '.`' . $key . '` = :' . $alias . $key;
+            $argsAlias[$alias . $key] = $value;
         }
 
         list($where, $order, $limit) = $this->extract($filter);
-        $whereQuery = $this->buildWhere($where);
-        $orderQuery = $this->buildOrder($order);
+        $whereQuery = $this->buildWhere($where, $alias);
+        $orderQuery = $this->buildOrder($order, $alias);
         $limitQuery = $this->buildLimit($limit);
-        $query = 'update `' . $table . '` set ' . implode(', ', $set) . $whereQuery . $orderQuery . $limitQuery . ';';
+        $query = 'update `' . $table . '` ' . $alias . ' set ' . implode(', ', $set) . $whereQuery . $orderQuery . $limitQuery . ';';
 
         if (is_array($where) or is_object($where)) {
-            $args = array_merge($args, (array)$where);
+            $argsAlias = array_merge($argsAlias, (array)$where);
         }
-        return $this->q($query, $args, $stmt);
+        return $this->q($query, $argsAlias, $stmt);
     }
 
     function delete($table, $filter = null, $limit = null, &$stmt = null)
     {
-        $where = $this->buildWhere($filter);
+        $alias = 'a';
+        $where = $this->buildWhere($filter, $alias);
         $limit = $this->buildLimit($limit);
 
-        $query = 'delete from `' . $table . '`' . $where . $limit . ';';
+        $query = 'delete ' . $alias . ' from `' . $table . '` ' . $alias . ' ' . $where . $limit . ';';
 
         $args = is_array($filter) ? $filter : [];
         return $this->q($query, $args, $stmt);
@@ -62,32 +80,102 @@ class Query extends Controller
 
     function select($table, $filter = null, array $columnsToSelect = [], &$stmt = null, $fetchObject = null)
     {
+        $alias = 'a';
         list($where, $order, $limit) = $this->extract($filter);
-        $whereQuery = $this->buildWhere($where);
-        $orderQuery = $this->buildOrder($order);
+        $whereQuery = $this->buildWhere($where, $alias);
+        $orderQuery = $this->buildOrder($order, $alias);
         $limitQuery = $this->buildLimit($limit);
-        $columnsToSelect = $columnsToSelect ? implode(', ', array_map(function ($value) {
-            return '`' . $value . '`';
-        }, $columnsToSelect)) : '*';
-        $query = 'select ' . $columnsToSelect . ' from `' . $table . '`' . $whereQuery . $orderQuery . $limitQuery . ';';
+        $columnsToSelect = $columnsToSelect ? implode(', ', array_map(function ($value) use ($alias) {
+            return $alias . '.`' . $value . '`';
+        }, $columnsToSelect)) : $alias . '.*';
+        $query = 'select ' . $columnsToSelect . ' from `' . $table . '` ' . $alias . ' ' . $whereQuery . $orderQuery . $limitQuery . ';';
 
         $args = is_array($where) ? $where : [];
         return $this->q($query, $args, $stmt, $fetchObject);
     }
 
+    function selectRelationship($table, $filter, $relationshipTable, $relationshipFilter, $onKey, &$stmt = null, $fetchObject = null, $reverseOrderPriority = false)
+    {
+        list($where_a, $order_a, $limit_a) = $this->extract($filter);
+        $whereQuery_a = $this->buildWhere($where_a, 'a');
+        $orderQuery_a = $this->buildOrder($order_a, 'a');
+        $limitQuery_a = $this->buildLimit($limit_a);
+
+        list($where_b, $order_b, $limit_b) = $this->extract($relationshipFilter);
+        $whereQuery_b = $this->buildWhere($where_b, 'b');
+        $orderQuery_b = $this->buildOrder($order_b, 'b');
+        $limitQuery_b = $this->buildLimit($limit_b);
+
+        $whereQueryArray = [];
+        if ($whereQuery_a) $whereQueryArray[] = substr($whereQuery_a, 6);
+        if ($whereQuery_b) $whereQueryArray[] = substr($whereQuery_b, 6);
+        $whereQueryArray[] = 'a.`id` = b.`' . $onKey . '`';
+        $whereQuery = implode(' and ', $whereQueryArray);
+
+        $orderQueryArray = [];
+        if ($orderQuery_a) $orderQueryArray[] = substr($orderQuery_a, 9);
+        if ($orderQuery_b) $orderQueryArray[] = substr($orderQuery_b, 9);
+        if ($reverseOrderPriority) array_unshift($orderQueryArray, array_pop($orderQueryArray));
+        $orderQuery = '';
+        if (array_filter($orderQueryArray)) $orderQuery = ' order by ' . implode(',', $orderQueryArray);
+
+        $limitQuery = $limitQuery_a ?: $limitQuery_b;
+
+        $query = 'select a.* from `' . $table . '` a, `' . $relationshipTable . '` b where ' . $whereQuery . $orderQuery . $limitQuery . ';';
+
+        $args = array_merge($where_a, $where_b);
+        return $this->q($query, $args, $stmt, $fetchObject);
+    }
+
     function search($table, $string, array $searchIn, $filter = null, array $columnsToSelect = [], &$stmt = null, $fetchObject = null)
     {
+        $alias = 'a';
         list($where, $order, $limit) = $this->extract($filter);
-        $whereQuery = $this->buildWhere($where);
-        $orderQuery = $this->buildOrder($order);
+        $whereQuery = $this->buildWhere($where, $alias);
+        $orderQuery = $this->buildOrder($order, $alias);
         $limitQuery = $this->buildLimit($limit);
         $searchQuery = $this->buildSearch($string, $searchIn, $where);
-        $columnsToSelect = $columnsToSelect ? implode(', ', array_map(function ($value) {
-            return '`' . $value . '`';
-        }, $columnsToSelect)) : '*';
-        $query = 'select ' . $columnsToSelect . ' from `' . $table . '`' . $whereQuery . $searchQuery . $orderQuery . $limitQuery . ';';
+        $columnsToSelect = $columnsToSelect ? implode(', ', array_map(function ($value) use ($alias) {
+            return $alias . '.`' . $value . '`';
+        }, $columnsToSelect)) : $alias . '.*';
+        $query = 'select ' . $columnsToSelect . ' from `' . $table . '` ' . $alias . ' ' . $whereQuery . $searchQuery . $orderQuery . $limitQuery . ';';
 
         $args = is_array($where) ? $where : [];
+        return $this->q($query, $args, $stmt, $fetchObject);
+    }
+
+    function searchRelationship($table, $string, array $searchIn, $filter = null, $relationshipTable, $relationshipFilter, $onKey, &$stmt = null, $fetchObject = null, $reverseOrderPriority = false)
+    {
+        list($where_a, $order_a, $limit_a) = $this->extract($filter);
+        $whereQuery_a = $this->buildWhere($where_a, 'a');
+        $orderQuery_a = $this->buildOrder($order_a, 'a');
+        $limitQuery_a = $this->buildLimit($limit_a);
+
+        list($where_b, $order_b, $limit_b) = $this->extract($relationshipFilter);
+        $whereQuery_b = $this->buildWhere($where_b, 'b');
+        $orderQuery_b = $this->buildOrder($order_b, 'b');
+        $limitQuery_b = $this->buildLimit($limit_b);
+
+        $searchQuery = $this->buildSearch($string, $searchIn, $where, 'a');
+
+        $whereQueryArray = [];
+        if ($whereQuery_a) $whereQueryArray[] = substr($whereQuery_a, 6);
+        if ($whereQuery_b) $whereQueryArray[] = substr($whereQuery_b, 6);
+        $whereQueryArray[] = 'a.`id` = b.`' . $onKey . '`';
+        $whereQuery = implode(' and ', $whereQueryArray);
+
+        $orderQueryArray = [];
+        if ($orderQuery_a) $orderQueryArray[] = substr($orderQuery_a, 9);
+        if ($orderQuery_b) $orderQueryArray[] = substr($orderQuery_b, 9);
+        if ($reverseOrderPriority) array_unshift($orderQueryArray, array_pop($orderQueryArray));
+        $orderQuery = '';
+        if (array_filter($orderQueryArray)) $orderQuery = ' order by ' . implode(',', $orderQueryArray);
+
+        $limitQuery = $limitQuery_a ?: $limitQuery_b;
+
+        $query = 'select a.* from `' . $table . '` a, `' . $relationshipTable . '` b where ' . $whereQuery . $searchQuery . $orderQuery . $limitQuery . ';';
+
+        $args = array_merge($where_a, $where_b);
         return $this->q($query, $args, $stmt, $fetchObject);
     }
 
@@ -114,8 +202,9 @@ class Query extends Controller
 
     function count($table, $filter = null, &$stmt = null)
     {
-        $where = $this->buildWhere($filter);
-        $query = 'select count(*) as c from `' . $table . '`' . $where . ';';
+        $alias = 'a';
+        $where = $this->buildWhere($filter, $alias);
+        $query = 'select count(' . $alias . '.*) as c from `' . $table . '` ' . $alias . ' ' . $where . ';';
 
         $args = is_array($filter) ? $filter : [];
         return $this->q($query, $args, $stmt)[0]->c;
@@ -123,8 +212,9 @@ class Query extends Controller
 
     function math($math, $column, $table, $filter = null, &$stmt = null)
     {
-        $where = $this->buildWhere($filter);
-        $query = 'select ' . $math . '(`' . $column . '`) as c from `' . $table . '`' . $where . ';';
+        $alias = 'a';
+        $where = $this->buildWhere($filter, $alias);
+        $query = 'select ' . $math . '(' . $alias . '.`' . $column . '`) as c from `' . $table . '` ' . $alias . ' ' . $where . ';';
 
         $args = is_array($filter) ? $filter : [];
         return $this->q($query, $args, $stmt)[0]->c;
@@ -167,15 +257,15 @@ class Query extends Controller
         return [$where, $order, $limit];
     }
 
-    protected function buildSearch($string, array $searchIn, &$where)
+    protected function buildSearch($string, array $searchIn, &$where, $alias = 'a')
     {
         if (!strlen($string) or !count($searchIn)) return '';
         $hadWhete = count($where);
         $data = [];
         foreach (explode(' ', trim($string)) as $word) {
             foreach ($searchIn as $key) {
-                $customKey = md5('search' . $key . $word . microtime() . rand(1, 9999999));
-                $data[] = '`' . $key . '` like :' . $customKey;
+                $customKey = md5('search' . $alias . $key . $word . microtime() . rand(1, 9999999));
+                $data[] = $alias . '.`' . $key . '` like :' . $alias . $customKey;
                 $where[$customKey] = '%' . $word . '%';
             }
         }
@@ -183,22 +273,23 @@ class Query extends Controller
         return ($hadWhete ? ' and ' : ' where ') . '(' . implode(' or ', $data) . ')';
     }
 
-    protected function buildWhere(&$where)
+    protected function buildWhere(&$where, $alias = 'a')
     {
+        $keyAlias = 'w' . $alias;
         if (!$where) return '';
         if (is_numeric($where)) {
             $input = trim($where);
             $where = [];
-            $where['id'] = $input;
-            return ' where id = :id';
+            $where[$keyAlias . 'id'] = $input;
+            return ' where ' . $alias . '.id = :' . $keyAlias . 'id';
         }
         if (is_string($where)) return ' where ' . trim($where);
 
         $data = $args = [];
         foreach ($where as $key => $value) {
             if (is_array($value) and in_array(strtolower($value[0]), ['=', '!=', '>', '<', '>=', '<=', 'like', 'not like'])) {
-                $data[] = '`' . $key . '` ' . $value[0] . ' :w' . $key;
-                $args['w' . $key] = $value[1];
+                $data[] = $alias . '.`' . $key . '` ' . $value[0] . ' :' . $keyAlias . $key;
+                $args[$keyAlias . $key] = $value[1];
                 continue;
             } elseif (is_array($value) and in_array(strtolower($value[0]), ['in', 'not in']) and is_array($value[1])) {
                 $special = strtolower($value[0]) == 'in' ? 'In' : 'NotIn';
@@ -207,13 +298,13 @@ class Query extends Controller
                     do {
                         $rand = $key . $special . ucfirst(strtolower($k));
                     } while (in_array($rand, $inKeys));
-                    $inKeys[] = 'w' . $rand;
-                    $args['w' . $rand] = $v;
+                    $inKeys[] = $keyAlias . $rand;
+                    $args[$keyAlias . $rand] = $v;
                 }
                 $inKeys = array_map(function ($value) {
                     return ':' . $value;
                 }, $inKeys);
-                $data[] = '`' . $key . '` ' . $value[0] . ' (' . implode(', ', $inKeys) . ')';
+                $data[] = $alias . '.`' . $key . '` ' . $value[0] . ' (' . implode(', ', $inKeys) . ')';
                 continue;
             } elseif (is_array($value) and in_array(strtolower($value[0]), ['between']) and is_array($value[1]) and count($value[1]) == 2) {
                 $inKeys = [];
@@ -221,39 +312,39 @@ class Query extends Controller
                     do {
                         $rand = $key . 'Between' . ucfirst(strtolower($k));
                     } while (in_array($rand, $inKeys));
-                    $inKeys[] = 'w' . $rand;
-                    $args['w' . $rand] = $v;
+                    $inKeys[] = $keyAlias . $rand;
+                    $args[$keyAlias . $rand] = $v;
                 }
                 $inKeys = array_map(function ($value) {
                     return ':' . $value;
                 }, $inKeys);
-                $data[] = '`' . $key . '` ' . $value[0] . ' ' . implode(' and ', $inKeys);
+                $data[] = $alias . '.`' . $key . '` ' . $value[0] . ' ' . implode(' and ', $inKeys);
                 continue;
             } elseif (is_string($value) and strlen($value) and ($value[0] == '%' or $value[strlen($value) - 1] == '%')) {
-                $data[] = '`' . $key . '` like :w' . $key;
+                $data[] = $alias . '.`' . $key . '` like :' . $keyAlias . $key;
             } elseif ($value === null) {
-                $data[] = '`' . $key . '` is null';
+                $data[] = $alias . '.`' . $key . '` is null';
             } else {
-                $data[] = '`' . $key . '` = :w' . $key;
+                $data[] = $alias . '.`' . $key . '` = :' . $keyAlias . $key;
             }
-            if ($value !== null) $args['w' . $key] = $value;
+            if ($value !== null) $args[$keyAlias . $key] = $value;
         }
         $where = $args;
         return ' where ' . implode(' and ', $data);
     }
 
-    protected function buildOrder($order)
+    protected function buildOrder($order, $alias = 'a')
     {
         if ($order === false or $order === null or $order === []) return '';
         if (is_array($order)) {
             $return = [];
             if (array_key_exists(0, $order)) {
-                $return = array_map(function ($value) {
-                    return '`' . $value . '`';
+                $return = array_map(function ($value) use ($alias) {
+                    return $alias . '.`' . $value . '`';
                 }, $order);
             } else {
                 foreach ($order as $key => $by) {
-                    $return[] = '`' . $key . '` ' . $by;
+                    $return[] = $alias . '.`' . $key . '` ' . $by;
                 }
             }
             return ' order by ' . implode(',', $return);
