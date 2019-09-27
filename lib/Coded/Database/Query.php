@@ -265,7 +265,7 @@ class Query extends Controller
         foreach (explode(' ', trim($string)) as $word) {
             foreach ($searchIn as $key) {
                 $customKey = md5('search' . $alias . $key . $word . microtime() . rand(1, 9999999));
-                $data[] = $alias . '.`' . $key . '` like :' . $alias . $customKey;
+                $data[] = $alias . '.`' . $key . '` like :' . $customKey;
                 $where[$customKey] = '%' . $word . '%';
             }
         }
