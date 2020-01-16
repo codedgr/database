@@ -144,7 +144,7 @@ class Query extends Controller
         return $this->q($query, $args, $stmt, $fetchObject);
     }
 
-    function searchRelationship($table, $string, array $searchIn, $filter = null, $relationshipTable, $relationshipFilter, $onKey, &$stmt = null, $fetchObject = null, $reverseOrderPriority = false)
+    function searchRelationship($table, $string, array $searchIn, $filter = null, $relationshipTable, $relationshipFilter, $onKey, &$stmt = null, $fetchObject = null, $reverseOrderPriority = false, $groupBy = 'id')
     {
         list($where_a, $order_a, $limit_a) = $this->extract($filter);
         $whereQuery_a = $this->buildWhere($where_a, 'a');
@@ -173,7 +173,12 @@ class Query extends Controller
 
         $limitQuery = $limitQuery_a ?: $limitQuery_b;
 
-        $query = 'select a.* from `' . $table . '` a, `' . $relationshipTable . '` b where ' . $whereQuery . $searchQuery . $orderQuery . $limitQuery . ';';
+        $groupByQuery = '';
+        if ($groupBy) {
+            $groupByQuery = ' group by a.`' . $groupBy . '`';
+        }
+
+        $query = 'select a.* from `' . $table . '` a, `' . $relationshipTable . '` b where ' . $whereQuery . $searchQuery . $groupByQuery . $orderQuery . $limitQuery . ';';
 
         $args = array_merge($where_a, $where_b);
         return $this->q($query, $args, $stmt, $fetchObject);
