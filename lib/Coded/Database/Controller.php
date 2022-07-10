@@ -11,6 +11,7 @@ class Controller extends \PDO
     protected $database;
     protected $host;
     protected $port;
+    protected $cache;
 
     function __construct($database, $username, $password, $host, $port = '3306', $options = [])
     {
@@ -19,6 +20,7 @@ class Controller extends \PDO
         $this->database = $database;
         $this->host = $host;
         $this->port = $port;
+        $this->cache = new \stdClass();
 
         parent::__construct('mysql:host=' . $host . ';port=' . $port . ';dbname=' . $database, $username, $password, $options);
         $this->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
@@ -60,6 +62,20 @@ class Controller extends \PDO
         }
         $stmt->closeCursor();
         return $result;
+    }
+
+    function cache($query, $input = [])
+    {
+        $queryType = strtolower(substr(trim($query), 0, 6));
+        if ($queryType != 'select') throw new \Exception('Only select queries can be cached');
+        $hash = 'c' . md5($query . json_encode($input));
+        if (!empty($this->cache->$hash)) return $this->cache->$hash;
+        return $this->cache->$hash = $this->q($query, $input);
+    }
+
+    function clearCache()
+    {
+        $this->cache = new \stdClass();
     }
 
     function transactionIfNotExists(callable $function)
