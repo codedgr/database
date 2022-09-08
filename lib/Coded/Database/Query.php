@@ -275,7 +275,7 @@ class Query extends Controller
             }
         }
 
-        return ($hadWhete ? ' and ' : ' where ') . '(' . implode(' or ', $data) . ')';
+        return ($hadWhete ? ' and ' : ' where ') . '(' . implode(' and ', $data) . ')';
     }
 
     protected function buildWhere(&$where, $alias = 'a')
