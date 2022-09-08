@@ -267,12 +267,14 @@ class Query extends Controller
         if (!strlen($string) or !count($searchIn)) return '';
         $hadWhete = count($where);
         $data = [];
-        foreach (explode(' ', trim($string)) as $word) {
+        foreach (array_filter(explode(' ', trim($string))) as $word) {
+            $group = [];
             foreach ($searchIn as $key) {
                 $customKey = md5('search' . $alias . $key . $word . microtime() . rand(1, 9999999));
-                $data[] = $alias . '.`' . $key . '` like :' . $customKey;
+                $group[] = $alias . '.`' . $key . '` like :' . $customKey;
                 $where[$customKey] = '%' . $word . '%';
             }
+            $data[] = '(' . implode(' or ', $group) . ')';
         }
 
         return ($hadWhete ? ' and ' : ' where ') . '(' . implode(' and ', $data) . ')';
