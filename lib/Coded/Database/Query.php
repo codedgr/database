@@ -144,7 +144,7 @@ class Query extends Controller
         return $this->q($query, $args, $stmt, $fetchObject);
     }
 
-    function searchRelationship($table, $string, array $searchIn, $filter = null, $relationshipTable, $relationshipFilter, $onKey, &$stmt = null, $fetchObject = null, $reverseOrderPriority = false, $groupBy = 'id')
+    function searchRelationship($table, $string, array $searchIn, $filter, $relationshipTable, $relationshipFilter, $onKey, &$stmt = null, $fetchObject = null, $reverseOrderPriority = false, $groupBy = 'id')
     {
         list($where_a, $order_a, $limit_a) = $this->extract($filter);
         $whereQuery_a = $this->buildWhere($where_a, 'a');
@@ -156,7 +156,7 @@ class Query extends Controller
         $orderQuery_b = $this->buildOrder($order_b, 'b');
         $limitQuery_b = $this->buildLimit($limit_b);
 
-        $searchQuery = $this->buildSearch($string, $searchIn, $where, 'a');
+        $searchQuery = $this->buildSearch($string, $searchIn, $where_a, 'a');
 
         $whereQueryArray = [];
         if ($whereQuery_a) $whereQueryArray[] = substr($whereQuery_a, 6);
@@ -265,7 +265,7 @@ class Query extends Controller
     protected function buildSearch($string, array $searchIn, &$where, $alias = 'a')
     {
         if (!strlen($string) or !count($searchIn)) return '';
-        $hadWhete = count($where);
+        $hadWhere = count($where);
         $data = [];
         foreach (array_filter(explode(' ', trim($string))) as $word) {
             $group = [];
@@ -277,7 +277,7 @@ class Query extends Controller
             $data[] = '(' . implode(' or ', $group) . ')';
         }
 
-        return ($hadWhete ? ' and ' : ' where ') . '(' . implode(' and ', $data) . ')';
+        return ($hadWhere ? ' and ' : ' where ') . '(' . implode(' and ', $data) . ')';
     }
 
     protected function buildWhere(&$where, $alias = 'a')
