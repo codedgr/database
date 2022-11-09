@@ -219,7 +219,7 @@ class Query extends Controller
     {
         $alias = 'a';
         $where = $this->buildWhere($filter, $alias);
-        $query = 'select ' . $math . '(' . $alias . '.`' . $column . '`) as c from `' . $table . '` ' . $alias . ' ' . $where . ';';
+        $query = 'select ' . $math . '(cast(' . $alias . '.`' . $column . '` as SIGNED) ) as c from `' . $table . '` ' . $alias . ' ' . $where . ';';
 
         $args = is_array($filter) ? $filter : [];
         return $this->q($query, $args, $stmt)[0]->c;
